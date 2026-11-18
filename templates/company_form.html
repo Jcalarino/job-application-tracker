@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Add' if mode == 'add' else 'Edit' }} Company - Job Tracker{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ 'Add Company' if mode == 'add' else 'Edit Company' }}</h1>
+
+<form method="post" class="app-form" novalidate>
+  <div class="mb-3">
+    <label for="company_name" class="form-label">Company name *</label>
+    <input type="text" class="form-control" id="company_name" name="company_name"
+           maxlength="100" required value="{{ company.company_name or '' }}">
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label for="industry" class="form-label">Industry</label>
+      <input type="text" class="form-control" id="industry" name="industry"
+             maxlength="50" value="{{ company.industry or '' }}">
+    </div>
+    <div class="col-md-6 mb-3">
+      <label for="website" class="form-label">Website</label>
+      <input type="text" class="form-control" id="website" name="website"
+             maxlength="200" value="{{ company.website or '' }}">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label for="city" class="form-label">City</label>
+      <input type="text" class="form-control" id="city" name="city"
+             maxlength="50" value="{{ company.city or '' }}">
+    </div>
+    <div class="col-md-6 mb-3">
+      <label for="state" class="form-label">State</label>
+      <input type="text" class="form-control" id="state" name="state"
+             maxlength="50" value="{{ company.state or '' }}">
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label for="notes" class="form-label">Notes</label>
+    <textarea class="form-control" id="notes" name="notes" rows="3">{{ company.notes or '' }}</textarea>
+  </div>
+
+  <button type="submit" class="btn btn-primary">{{ 'Add Company' if mode == 'add' else 'Save Changes' }}</button>
+  <a class="btn btn-outline-secondary" href="{{ url_for('companies') }}">Cancel</a>
+</form>
+{% endblock %}

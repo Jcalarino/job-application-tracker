@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - Job Tracker{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+
+<div class="row g-3">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.companies }}</div>
+      <div class="stat-label">Companies</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.jobs }}</div>
+      <div class="stat-label">Jobs</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.applications }}</div>
+      <div class="stat-label">Applications</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.contacts }}</div>
+      <div class="stat-label">Contacts</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
