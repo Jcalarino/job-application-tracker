@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -606,6 +607,153 @@ def delete_application(application_id):
         except mysql.connector.Error as err:
             flash(f'Database error: {err}', 'danger')
     return redirect(url_for('applications'))
+
+
+# ------------------------------------------------------------
+# Contacts: list (with company filter) / add / edit / delete
+# ------------------------------------------------------------
+EMAIL_PATTERN = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+PHONE_PATTERN = re.compile(r'^[0-9 ()+.\-]+$')
+
+
+def read_contact_form():
+    """Validate the submitted contact form. Returns (values, errors)."""
+    f = request.form
+    errors = []
+    data = {
+        'company_id': f.get('company_id', '').strip(),
+        'contact_name': f.get('contact_name', '').strip(),
+        'title': f.get('title', '').strip(),
+        'email': f.get('email', '').strip(),
+        'phone': f.get('phone', '').strip(),
+        'linkedin_url': f.get('linkedin_url', '').strip(),
+        'notes': f.get('notes', '').strip(),
+    }
+
+    if not data['company_id'].isdigit() or fetch_one(
+            'SELECT company_id FROM companies WHERE company_id = %s', (data['company_id'],)) is None:
+        errors.append('Please choose a company.')
+    if not data['contact_name']:
+        errors.append('Contact name is required.')
+    if len(data['contact_name']) > 100:
+        errors.append('Contact name must be 100 characters or fewer.')
+    if len(data['title']) > 100:
+        errors.append('Title must be 100 characters or fewer.')
+    if data['email']:
+        if len(data['email']) > 100:
+            errors.append('Email must be 100 characters or fewer.')
+        elif not EMAIL_PATTERN.match(data['email']):
+            errors.append('Please enter a valid email address (like name@company.com).')
+    if data['phone']:
+        if len(data['phone']) > 20:
+            errors.append('Phone must be 20 characters or fewer.')
+        elif not PHONE_PATTERN.match(data['phone']):
+            errors.append('Phone can only contain digits, spaces, and + - ( ) .')
+    if data['linkedin_url']:
+        if len(data['linkedin_url']) > 200:
+            errors.append('LinkedIn URL must be 200 characters or fewer.')
+        elif not re.match(r'^https?://', data['linkedin_url'], re.IGNORECASE):
+            errors.append('LinkedIn URL must start with http:// or https://')
+
+    for key in ('title', 'email', 'phone', 'linkedin_url', 'notes'):
+        if data[key] == '':
+            data[key] = None
+    data['company_id'] = int(data['company_id']) if data['company_id'].isdigit() else None
+    return data, errors
+
+
+def render_contact_form(contact, mode):
+    return render_template('contact_form.html', contact=contact, mode=mode,
+                           companies=company_choices())
+
+
+@app.route('/contacts')
+def contacts():
+    company_id = request.args.get('company_id', '').strip()
+    sql = '''
+        SELECT ct.*, c.company_name
+        FROM contacts ct
+        JOIN companies c ON ct.company_id = c.company_id
+    '''
+    params = ()
+    if company_id.isdigit():
+        sql += ' WHERE ct.company_id = %s'
+        params = (int(company_id),)
+    sql += ' ORDER BY ct.contact_name'
+    rows = fetch_all(sql, params)
+    return render_template('contacts.html', contacts=rows, companies=company_choices(),
+                           selected=int(company_id) if company_id.isdigit() else None)
+
+
+@app.route('/contacts/add', methods=['GET', 'POST'])
+def add_contact():
+    if request.method == 'POST':
+        data, errors = read_contact_form()
+        if errors:
+            for e in errors:
+                flash(e, 'danger')
+            return render_contact_form(data, 'add')
+        try:
+            execute('''
+                INSERT INTO contacts (company_id, contact_name, title, email, phone,
+                                      linkedin_url, notes)
+                VALUES (%(company_id)s, %(contact_name)s, %(title)s, %(email)s, %(phone)s,
+                        %(linkedin_url)s, %(notes)s)
+            ''', data)
+        except mysql.connector.Error as err:
+            flash(f'Database error: {err}', 'danger')
+            return render_contact_form(data, 'add')
+        flash(f"Added contact {data['contact_name']}", 'success')
+        return redirect(url_for('contacts'))
+
+    preselect = request.args.get('company_id', '')
+    return render_contact_form(
+        {'company_id': int(preselect) if preselect.isdigit() else None}, 'add')
+
+
+@app.route('/contacts/<int:contact_id>/edit', methods=['GET', 'POST'])
+def edit_contact(contact_id):
+    existing = fetch_one('SELECT * FROM contacts WHERE contact_id = %s', (contact_id,))
+    if existing is None:
+        flash('Contact not found.', 'warning')
+        return redirect(url_for('contacts'))
+
+    if request.method == 'POST':
+        data, errors = read_contact_form()
+        data['contact_id'] = contact_id
+        if errors:
+            for e in errors:
+                flash(e, 'danger')
+            return render_contact_form(data, 'edit')
+        try:
+            execute('''
+                UPDATE contacts
+                SET company_id = %(company_id)s, contact_name = %(contact_name)s,
+                    title = %(title)s, email = %(email)s, phone = %(phone)s,
+                    linkedin_url = %(linkedin_url)s, notes = %(notes)s
+                WHERE contact_id = %(contact_id)s
+            ''', data)
+        except mysql.connector.Error as err:
+            flash(f'Database error: {err}', 'danger')
+            return render_contact_form(data, 'edit')
+        flash(f"Updated contact {data['contact_name']}", 'success')
+        return redirect(url_for('contacts'))
+
+    return render_contact_form(existing, 'edit')
+
+
+@app.route('/contacts/<int:contact_id>/delete', methods=['POST'])
+def delete_contact(contact_id):
+    existing = fetch_one('SELECT contact_name FROM contacts WHERE contact_id = %s', (contact_id,))
+    if existing is None:
+        flash('Contact not found.', 'warning')
+    else:
+        try:
+            execute('DELETE FROM contacts WHERE contact_id = %s', (contact_id,))
+            flash(f"Deleted contact {existing['contact_name']}.", 'success')
+        except mysql.connector.Error as err:
+            flash(f'Database error: {err}', 'danger')
+    return redirect(url_for('contacts'))
 
 
 if __name__ == '__main__':

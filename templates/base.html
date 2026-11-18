@@ -28,7 +28,11 @@
           <a class="nav-link {% if request.endpoint and 'application' in request.endpoint %}active{% endif %}"
              href="{{ url_for('applications') }}">Applications</a>
         </li>
-        {# Contacts and Job Match links get added as we build them #}
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint and 'contact' in request.endpoint %}active{% endif %}"
+             href="{{ url_for('contacts') }}">Contacts</a>
+        </li>
+        {# The Job Match link gets added when we build it #}
       </ul>
     </div>
   </nav>
