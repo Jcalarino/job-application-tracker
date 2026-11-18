@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Job Match - Job Tracker{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Job Match</h1>
+
+<form method="get" class="app-form mb-4">
+  <label for="skills" class="form-label">Your skills</label>
+  <div class="input-group">
+    <input type="text" class="form-control" id="skills" name="skills" maxlength="500"
+           placeholder="Python, SQL, Flask" value="{{ skills_text }}" autofocus>
+    <button class="btn btn-primary" type="submit">Find matching jobs</button>
+  </div>
+  <div class="form-text">Separate skills with commas. Matching ignores upper and lower case.</div>
+
+  {% if known_skills %}
+  <div class="mt-3">
+    <div class="small text-muted mb-1">Skills used in your jobs (click to add):</div>
+    {% for s in known_skills %}
+      <button type="button" class="badge rounded-pill text-bg-light border skill-chip"
+              data-skill="{{ s }}">{{ s }}</button>
+    {% endfor %}
+  </div>
+  {% endif %}
+</form>
+
+{% if results is none %}
+  <p class="text-muted">Enter your skills above to see jobs ranked by how well you match.</p>
+{% else %}
+  <h2 class="h5 mb-3">
+    {{ results | length }} matching job{{ '' if results | length == 1 else 's' }}
+    for {{ user_skills | join(', ') }}
+  </h2>
+
+  {% for r in results %}
+  <div class="match-card mb-3">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <div class="match-rank">#{{ loop.index }}</div>
+        <div class="fw-semibold fs-5">{{ r.job_title }}</div>
+        <div class="text-muted">{{ r.company_name }}{% if r.job_type %} &middot; {{ r.job_type }}{% endif %}</div>
+      </div>
+      <div class="text-end">
+        <div class="match-percent">{{ r.percent }}%</div>
+        <div class="small text-muted">({{ r.matched_count }}/{{ r.total }} skills)</div>
+      </div>
+    </div>
+
+    <div class="progress my-2" role="progressbar" aria-valuenow="{{ r.percent }}" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar {% if r.percent >= 75 %}bg-success{% elif r.percent >= 50 %}bg-warning{% else %}bg-secondary{% endif %}"
+           style="width: {{ r.percent }}%"></div>
+    </div>
+
+    <div class="mb-1">
+      <span class="small text-muted me-1">You have:</span>
+      {% for s in r.matched %}<span class="badge text-bg-success skill-badge">{{ s }}</span>{% endfor %}
+    </div>
+    {% if r.missing %}
+    <div class="mb-1">
+      <span class="small text-muted me-1">Missing:</span>
+      {% for s in r.missing %}<span class="badge text-bg-danger skill-badge">{{ s }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if r.preferred_matched %}
+    <div class="mb-1 small text-muted">
+      Bonus - you also have {{ r.preferred_matched | length }} of {{ r.preferred_total }} preferred skill{{ '' if r.preferred_total == 1 else 's' }}:
+      {{ r.preferred_matched | join(', ') }}
+    </div>
+    {% endif %}
+
+    <div class="mt-2">
+      <a class="btn btn-sm btn-outline-primary"
+         href="{{ url_for('add_application', job_id=r.job_id) }}">Apply (log application)</a>
+    </div>
+  </div>
+  {% else %}
+    <p class="text-muted">None of your jobs list any of those skills as required.</p>
+  {% endfor %}
+
+  {% if zero_match or skipped %}
+  <p class="small text-muted">
+    {% if zero_match %}{{ zero_match }} job{{ '' if zero_match == 1 else 's' }} matched none of your skills and {{ 'is' if zero_match == 1 else 'are' }} hidden.{% endif %}
+    {% if skipped %}{{ skipped }} job{{ '' if skipped == 1 else 's' }} ha{{ 's' if skipped == 1 else 've' }} no required skills listed and can't be scored.{% endif %}
+  </p>
+  {% endif %}
+{% endif %}
+
+<script>
+  // Clicking a skill chip adds it to the input (once)
+  document.querySelectorAll('.skill-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var input = document.getElementById('skills');
+      var current = input.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var skill = chip.dataset.skill;
+      var already = current.some(function (s) { return s.toLowerCase() === skill.toLowerCase(); });
+      if (!already) { current.push(skill); }
+      input.value = current.join(', ');
+      input.focus();
+    });
+  });
+</script>
+{% endblock %}

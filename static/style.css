@@ -40,6 +40,33 @@ body {
   overflow: hidden;
 }
 
+.match-card {
+  background: #fff;
+  border: 1px solid #e1e6ec;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.match-rank {
+  color: #6b7785;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.match-percent {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1d3557;
+  line-height: 1;
+}
+
+.skill-chip {
+  cursor: pointer;
+  margin-right: 0.2rem;
+  font-weight: 500;
+  color: #1f2933;
+}
+
 .skill-badge {
   margin-right: 0.2rem;
   font-weight: 500;

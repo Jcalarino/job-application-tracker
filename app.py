@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 import mysql.connector
 
 from database import fetch_all, fetch_one, execute
+from matching import parse_skills, rank_jobs, collect_skills
 
 app = Flask(__name__)
 app.secret_key = 'change-this-to-any-random-text'  # needed for flash messages
@@ -143,15 +144,8 @@ def delete_company(company_id):
 JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship']
 
 
-def split_skills(text):
-    """'Python, SQL ,python' -> ['Python', 'SQL'] (trimmed, no blanks, no duplicates)."""
-    seen, skills = set(), []
-    for part in (text or '').replace('\n', ',').split(','):
-        skill = part.strip()
-        if skill and skill.lower() not in seen:
-            seen.add(skill.lower())
-            skills.append(skill)
-    return skills
+# Skill lists are parsed the same way for the job form and for Job Match
+split_skills = parse_skills
 
 
 def load_requirements(raw):
@@ -754,6 +748,45 @@ def delete_contact(contact_id):
         except mysql.connector.Error as err:
             flash(f'Database error: {err}', 'danger')
     return redirect(url_for('contacts'))
+
+
+# ------------------------------------------------------------
+# Job Match: enter your skills, see jobs ranked by match percentage
+# (the scoring itself lives in matching.py)
+# ------------------------------------------------------------
+@app.route('/job-match')
+def job_match():
+    raw = request.args.get('skills', '').strip()
+    user_skills = parse_skills(raw[:500])[:30]
+
+    rows = fetch_all('''
+        SELECT j.job_id, j.job_title, j.job_type, j.requirements, c.company_name
+        FROM jobs j
+        JOIN companies c ON j.company_id = c.company_id
+    ''')
+    jobs_for_matching = []
+    for row in rows:
+        requirements = load_requirements(row['requirements'])
+        jobs_for_matching.append({
+            'job_id': row['job_id'],
+            'job_title': row['job_title'],
+            'job_type': row['job_type'],
+            'company_name': row['company_name'],
+            'required_skills': requirements.get('required_skills', []),
+            'preferred_skills': requirements.get('preferred_skills', []),
+        })
+
+    results, skipped, zero_match = None, 0, 0
+    if user_skills:
+        results, skipped, zero_match = rank_jobs(jobs_for_matching, user_skills)
+
+    return render_template('job_match.html',
+                           skills_text=', '.join(user_skills),
+                           user_skills=user_skills,
+                           results=results,
+                           skipped=skipped,
+                           zero_match=zero_match,
+                           known_skills=collect_skills(jobs_for_matching))
 
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@
              href="{{ url_for('companies') }}">Companies</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link {% if request.endpoint and 'job' in request.endpoint %}active{% endif %}"
+          <a class="nav-link {% if request.endpoint in ('jobs', 'add_job', 'edit_job', 'delete_job') %}active{% endif %}"
              href="{{ url_for('jobs') }}">Jobs</a>
         </li>
         <li class="nav-item">
@@ -32,7 +32,10 @@
           <a class="nav-link {% if request.endpoint and 'contact' in request.endpoint %}active{% endif %}"
              href="{{ url_for('contacts') }}">Contacts</a>
         </li>
-        {# The Job Match link gets added when we build it #}
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'job_match' %}active{% endif %}"
+             href="{{ url_for('job_match') }}">Job Match</a>
+        </li>
       </ul>
     </div>
   </nav>
