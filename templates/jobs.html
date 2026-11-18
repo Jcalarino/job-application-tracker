@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_macros.html' import salary_range %}
 {% block title %}Jobs - Job Tracker{% endblock %}
 
 {% block content %}
@@ -25,18 +26,12 @@
     <tbody>
       {% for j in jobs %}
       <tr>
-        <td class="fw-semibold">{{ j.job_title }}</td>
-        <td>{{ j.company_name }}</td>
-        <td>{{ j.job_type or '-' }}</td>
-        <td class="text-nowrap">
-          {% if j.salary_min is not none and j.salary_max is not none %}
-            ${{ '{:,}'.format(j.salary_min) }} - ${{ '{:,}'.format(j.salary_max) }}
-          {% elif j.salary_min is not none %}
-            from ${{ '{:,}'.format(j.salary_min) }}
-          {% elif j.salary_max is not none %}
-            up to ${{ '{:,}'.format(j.salary_max) }}
-          {% else %}-{% endif %}
+        <td class="fw-semibold">
+          <a class="text-decoration-none" href="{{ url_for('job_detail', job_id=j.job_id) }}">{{ j.job_title }}</a>
         </td>
+        <td><a class="text-decoration-none" href="{{ url_for('company_detail', company_id=j.company_id) }}">{{ j.company_name }}</a></td>
+        <td>{{ j.job_type or '-' }}</td>
+        <td class="text-nowrap">{{ salary_range(j.salary_min, j.salary_max) }}</td>
         <td class="text-nowrap">{{ j.date_posted or '-' }}</td>
         <td>
           {% for skill in j.required %}

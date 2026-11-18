@@ -23,7 +23,9 @@
     <tbody>
       {% for c in companies %}
       <tr>
-        <td class="fw-semibold">{{ c.company_name }}</td>
+        <td class="fw-semibold">
+          <a class="text-decoration-none" href="{{ url_for('company_detail', company_id=c.company_id) }}">{{ c.company_name }}</a>
+        </td>
         <td>{{ c.industry or '-' }}</td>
         <td>
           {% if c.city or c.state %}{{ [c.city, c.state] | select | join(', ') }}{% else %}-{% endif %}

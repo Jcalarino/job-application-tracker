@@ -1,0 +1,1 @@
+SELECT application_id, interview_data FROM applications WHERE application_id IN (2, 5);

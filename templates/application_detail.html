@@ -15,8 +15,11 @@
 <div class="app-form mb-4">
   <h2 class="h5 mb-3">Application</h2>
   <dl class="row mb-0">
+    <dt class="col-sm-3">Job</dt>
+    <dd class="col-sm-9"><a href="{{ url_for('job_detail', job_id=a.job_id) }}">{{ a.job_title }}</a></dd>
+
     <dt class="col-sm-3">Company</dt>
-    <dd class="col-sm-9">{{ a.company_name }}</dd>
+    <dd class="col-sm-9"><a href="{{ url_for('company_detail', company_id=a.company_id) }}">{{ a.company_name }}</a></dd>
 
     <dt class="col-sm-3">Status</dt>
     <dd class="col-sm-9">{{ status_badge(a.status) }}</dd>

@@ -12,6 +12,23 @@ app = Flask(__name__)
 app.secret_key = 'change-this-to-any-random-text'  # needed for flash messages
 
 
+@app.template_filter('web_url')
+def web_url(value):
+    """Make a stored website safe to use as a link.
+
+    'www.site.com' -> 'https://www.site.com'; anything that is not a plain
+    web address (like a javascript: link) becomes '' so templates skip the link.
+    """
+    if not value:
+        return ''
+    value = value.strip()
+    if re.match(r'^https?://', value, re.IGNORECASE):
+        return value
+    if '://' in value or re.match(r'^(javascript|data|vbscript):', value, re.IGNORECASE):
+        return ''
+    return 'https://' + value
+
+
 # ------------------------------------------------------------
 # Dashboard
 # ------------------------------------------------------------
@@ -142,6 +159,29 @@ def companies():
         ORDER BY c.company_name
     ''')
     return render_template('companies.html', companies=rows)
+
+
+@app.route('/companies/<int:company_id>')
+def company_detail(company_id):
+    company = fetch_one('SELECT * FROM companies WHERE company_id = %s', (company_id,))
+    if company is None:
+        flash('Company not found.', 'warning')
+        return redirect(url_for('companies'))
+    company_jobs = fetch_all('''
+        SELECT j.job_id, j.job_title, j.job_type, j.salary_min, j.salary_max, j.date_posted,
+               COUNT(a.application_id) AS app_count
+        FROM jobs j
+        LEFT JOIN applications a ON a.job_id = j.job_id
+        WHERE j.company_id = %s
+        GROUP BY j.job_id
+        ORDER BY j.date_posted DESC, j.job_title
+    ''', (company_id,))
+    company_contacts = fetch_all('''
+        SELECT contact_id, contact_name, title, email, phone
+        FROM contacts WHERE company_id = %s ORDER BY contact_name
+    ''', (company_id,))
+    return render_template('company_detail.html', company=company,
+                           jobs=company_jobs, contacts=company_contacts)
 
 
 @app.route('/companies/add', methods=['GET', 'POST'])
@@ -294,6 +334,8 @@ def read_job_form(existing_requirements=None):
         errors.append('Please choose a valid job type.')
     if len(job_url) > 300:
         errors.append('Job URL must be 300 characters or fewer.')
+    elif job_url and not re.match(r'^https?://', job_url, re.IGNORECASE):
+        errors.append('Job URL must start with http:// or https://')
 
     salary_min = parse_whole_number(f.get('salary_min'), 'Minimum salary', errors)
     salary_max = parse_whole_number(f.get('salary_max'), 'Maximum salary', errors)
@@ -366,6 +408,26 @@ def jobs():
     for row in rows:
         row['required'] = load_requirements(row['requirements']).get('required_skills', [])
     return render_template('jobs.html', jobs=rows)
+
+
+@app.route('/jobs/<int:job_id>')
+def job_detail(job_id):
+    job = fetch_one('''
+        SELECT j.*, c.company_name
+        FROM jobs j JOIN companies c ON j.company_id = c.company_id
+        WHERE j.job_id = %s
+    ''', (job_id,))
+    if job is None:
+        flash('Job not found.', 'warning')
+        return redirect(url_for('jobs'))
+    job_applications = fetch_all('''
+        SELECT application_id, application_date, status, resume_version
+        FROM applications WHERE job_id = %s
+        ORDER BY application_date DESC, application_id DESC
+    ''', (job_id,))
+    return render_template('job_detail.html', job=job,
+                           requirements=load_requirements(job['requirements']),
+                           applications=job_applications)
 
 
 @app.route('/jobs/add', methods=['GET', 'POST'])
@@ -752,6 +814,19 @@ def contacts():
     rows = fetch_all(sql, params)
     return render_template('contacts.html', contacts=rows, companies=company_choices(),
                            selected=int(company_id) if company_id.isdigit() else None)
+
+
+@app.route('/contacts/<int:contact_id>')
+def contact_detail(contact_id):
+    contact = fetch_one('''
+        SELECT ct.*, c.company_name
+        FROM contacts ct JOIN companies c ON ct.company_id = c.company_id
+        WHERE ct.contact_id = %s
+    ''', (contact_id,))
+    if contact is None:
+        flash('Contact not found.', 'warning')
+        return redirect(url_for('contacts'))
+    return render_template('contact_detail.html', contact=contact)
 
 
 @app.route('/contacts/add', methods=['GET', 'POST'])

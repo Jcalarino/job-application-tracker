@@ -36,9 +36,11 @@
     <tbody>
       {% for ct in contacts %}
       <tr>
-        <td class="fw-semibold">{{ ct.contact_name }}</td>
+        <td class="fw-semibold">
+          <a class="text-decoration-none" href="{{ url_for('contact_detail', contact_id=ct.contact_id) }}">{{ ct.contact_name }}</a>
+        </td>
         <td>{{ ct.title or '-' }}</td>
-        <td>{{ ct.company_name }}</td>
+        <td><a class="text-decoration-none" href="{{ url_for('company_detail', company_id=ct.company_id) }}">{{ ct.company_name }}</a></td>
         <td>
           {% if ct.email %}<a href="mailto:{{ ct.email }}">{{ ct.email }}</a>{% else %}-{% endif %}
         </td>

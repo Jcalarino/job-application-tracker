@@ -1,4 +1,11 @@
 {# Shared pieces used by several pages #}
+{% macro salary_range(low, high) -%}
+  {%- if low is not none and high is not none -%}${{ '{:,}'.format(low) }} - ${{ '{:,}'.format(high) }}
+  {%- elif low is not none -%}from ${{ '{:,}'.format(low) }}
+  {%- elif high is not none -%}up to ${{ '{:,}'.format(high) }}
+  {%- else -%}-{%- endif -%}
+{%- endmacro %}
+
 {% macro status_badge(status) %}
   {% set colors = {
     'Applied': 'secondary',
