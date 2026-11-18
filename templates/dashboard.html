@@ -1,32 +1,157 @@
 {% extends 'base.html' %}
+{% from '_macros.html' import status_badge %}
 {% block title %}Dashboard - Job Tracker{% endblock %}
 
 {% block content %}
 <h1 class="page-title">Dashboard</h1>
 
-<div class="row g-3">
+{# ---- Totals (each card links to its list) ---- #}
+<div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <a class="stat-card d-block text-decoration-none" href="{{ url_for('companies') }}">
       <div class="stat-number">{{ stats.companies }}</div>
       <div class="stat-label">Companies</div>
-    </div>
+    </a>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <a class="stat-card d-block text-decoration-none" href="{{ url_for('jobs') }}">
       <div class="stat-number">{{ stats.jobs }}</div>
       <div class="stat-label">Jobs</div>
-    </div>
+    </a>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <a class="stat-card d-block text-decoration-none" href="{{ url_for('applications') }}">
       <div class="stat-number">{{ stats.applications }}</div>
       <div class="stat-label">Applications</div>
-    </div>
+    </a>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <a class="stat-card d-block text-decoration-none" href="{{ url_for('contacts') }}">
       <div class="stat-number">{{ stats.contacts }}</div>
       <div class="stat-label">Contacts</div>
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  {# ---- Applications by status ---- #}
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h2 class="panel-title">Applications by status</h2>
+      {% if stats.applications %}
+        {% for s in status_counts %}
+        <div class="bar-row">
+          <a class="bar-label text-decoration-none" href="{{ url_for('applications', status=s.status) }}">{{ s.status }}</a>
+          <div class="bar-track"><div class="bar-fill bg-{{ s.color }}" style="width: {{ s.width }}%"></div></div>
+          <div class="bar-value">{{ s.n }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted mb-0">No applications yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---- Response rate ---- #}
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h2 class="panel-title">Response rate</h2>
+      {% if stats.applications %}
+        <div class="d-flex align-items-baseline gap-3">
+          <div class="stat-number">{{ response_rate }}%</div>
+          <div class="text-muted">{{ responded }} of {{ stats.applications }} applications have moved past "Applied"</div>
+        </div>
+        <div class="progress my-3" role="progressbar" aria-valuenow="{{ response_rate }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar bg-success" style="width: {{ response_rate }}%"></div>
+        </div>
+        <div class="text-muted">Offers received: <strong>{{ offers }}</strong></div>
+      {% else %}
+        <p class="text-muted mb-0">Add an application to see your response rate.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---- Jobs per company ---- #}
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h2 class="panel-title">Jobs per company</h2>
+      {% for c in jobs_per_company %}
+      <div class="bar-row">
+        <div class="bar-label">{{ c.company_name }}</div>
+        <div class="bar-track"><div class="bar-fill bg-primary" style="width: {{ c.width }}%"></div></div>
+        <div class="bar-value">{{ c.n }}</div>
+      </div>
+      {% else %}
+        <p class="text-muted mb-0">No companies yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ---- Average salary by industry ---- #}
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h2 class="panel-title">Average salary by industry</h2>
+      {% if salary_by_industry %}
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr><th>Industry</th><th class="text-end">Avg min</th><th class="text-end">Avg max</th><th>Jobs</th></tr>
+        </thead>
+        <tbody>
+          {% for s in salary_by_industry %}
+          <tr>
+            <td>{{ s.industry }}</td>
+            <td class="text-end">${{ '{:,}'.format(s.avg_min) }}</td>
+            <td class="text-end fw-semibold">${{ '{:,}'.format(s.avg_max) }}</td>
+            <td>{{ s.n }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="text-muted mb-0">Add jobs with salaries to see averages.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---- Jobs by type ---- #}
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h2 class="panel-title">Jobs by type</h2>
+      {% for t in jobs_by_type %}
+      <div class="bar-row">
+        <div class="bar-label">{{ t.job_type }}</div>
+        <div class="bar-track"><div class="bar-fill bg-info" style="width: {{ t.width }}%"></div></div>
+        <div class="bar-value">{{ t.n }}</div>
+      </div>
+      {% else %}
+        <p class="text-muted mb-0">No jobs yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ---- Recent applications ---- #}
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h2 class="panel-title">Recent applications</h2>
+      {% if recent %}
+      <table class="table table-sm align-middle mb-0">
+        <tbody>
+          {% for a in recent %}
+          <tr>
+            <td>
+              <a class="text-decoration-none fw-semibold"
+                 href="{{ url_for('application_detail', application_id=a.application_id) }}">{{ a.job_title }}</a>
+              <div class="small text-muted">{{ a.company_name }}</div>
+            </td>
+            <td class="text-nowrap small">{{ a.application_date }}</td>
+            <td class="text-end">{{ status_badge(a.status) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="text-muted mb-0">No applications yet.</p>
+      {% endif %}
     </div>
   </div>
 </div>

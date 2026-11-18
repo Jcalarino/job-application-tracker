@@ -15,6 +15,24 @@ app.secret_key = 'change-this-to-any-random-text'  # needed for flash messages
 # ------------------------------------------------------------
 # Dashboard
 # ------------------------------------------------------------
+STATUS_COLORS = {
+    'Applied': 'secondary',
+    'Screening': 'info',
+    'Interview': 'primary',
+    'Offer': 'success',
+    'Rejected': 'danger',
+    'Withdrawn': 'dark',
+}
+
+
+def add_bar_widths(rows, key):
+    """Give each row a 'width' (0-100) relative to the biggest value, for CSS bar charts."""
+    biggest = max([r[key] for r in rows] or [0]) or 1
+    for row in rows:
+        row['width'] = int(100 * row[key] / biggest)
+    return rows
+
+
 @app.route('/')
 def dashboard():
     stats = {
@@ -23,7 +41,64 @@ def dashboard():
         'applications': fetch_one('SELECT COUNT(*) AS n FROM applications')['n'],
         'contacts': fetch_one('SELECT COUNT(*) AS n FROM contacts')['n'],
     }
-    return render_template('dashboard.html', stats=stats)
+
+    # Applications by status (every status is listed, even with zero)
+    by_status = {row['status']: row['n'] for row in fetch_all(
+        'SELECT status, COUNT(*) AS n FROM applications GROUP BY status')}
+    status_counts = add_bar_widths([
+        {'status': s, 'n': by_status.get(s, 0), 'color': STATUS_COLORS[s]}
+        for s in APPLICATION_STATUSES], 'n')
+
+    # Response rate: share of applications that moved past "Applied"
+    total_apps = stats['applications']
+    responded = total_apps - by_status.get('Applied', 0)
+    response_rate = int(100 * responded / total_apps + 0.5) if total_apps else 0
+
+    jobs_per_company = add_bar_widths(fetch_all('''
+        SELECT c.company_name, COUNT(j.job_id) AS n
+        FROM companies c
+        LEFT JOIN jobs j ON c.company_id = j.company_id
+        GROUP BY c.company_id, c.company_name
+        ORDER BY n DESC, c.company_name
+    '''), 'n')
+
+    salary_rows = fetch_all('''
+        SELECT c.industry, COUNT(*) AS n,
+               ROUND(AVG(j.salary_min)) AS avg_min, ROUND(AVG(j.salary_max)) AS avg_max
+        FROM companies c
+        JOIN jobs j ON c.company_id = j.company_id
+        WHERE j.salary_min IS NOT NULL AND j.salary_max IS NOT NULL AND c.industry IS NOT NULL
+        GROUP BY c.industry
+        ORDER BY avg_max DESC
+    ''')
+    for row in salary_rows:
+        row['avg_min'] = int(row['avg_min'])
+        row['avg_max'] = int(row['avg_max'])
+    salary_by_industry = add_bar_widths(salary_rows, 'avg_max')
+
+    jobs_by_type = add_bar_widths(fetch_all('''
+        SELECT job_type, COUNT(*) AS n
+        FROM jobs
+        WHERE job_type IS NOT NULL
+        GROUP BY job_type
+        ORDER BY n DESC
+    '''), 'n')
+
+    recent = fetch_all('''
+        SELECT a.application_id, a.application_date, a.status, j.job_title, c.company_name
+        FROM applications a
+        JOIN jobs j ON a.job_id = j.job_id
+        JOIN companies c ON j.company_id = c.company_id
+        ORDER BY a.application_date DESC, a.application_id DESC
+        LIMIT 5
+    ''')
+
+    return render_template('dashboard.html', stats=stats, status_counts=status_counts,
+                           response_rate=response_rate, responded=responded,
+                           jobs_per_company=jobs_per_company,
+                           salary_by_industry=salary_by_industry,
+                           jobs_by_type=jobs_by_type, recent=recent,
+                           offers=by_status.get('Offer', 0))
 
 
 # ------------------------------------------------------------
