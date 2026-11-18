@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import status_badge %}
+{% block title %}{{ a.job_title }} - Application{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0">{{ a.job_title }}</h1>
+  <div>
+    <a class="btn btn-outline-secondary"
+       href="{{ url_for('edit_application', application_id=a.application_id) }}">Edit</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('applications') }}">Back to list</a>
+  </div>
+</div>
+
+<div class="app-form mb-4">
+  <h2 class="h5 mb-3">Application</h2>
+  <dl class="row mb-0">
+    <dt class="col-sm-3">Company</dt>
+    <dd class="col-sm-9">{{ a.company_name }}</dd>
+
+    <dt class="col-sm-3">Status</dt>
+    <dd class="col-sm-9">{{ status_badge(a.status) }}</dd>
+
+    <dt class="col-sm-3">Applied on</dt>
+    <dd class="col-sm-9">{{ a.application_date }}</dd>
+
+    <dt class="col-sm-3">Resume version</dt>
+    <dd class="col-sm-9">{{ a.resume_version or '-' }}</dd>
+
+    <dt class="col-sm-3">Cover letter sent</dt>
+    <dd class="col-sm-9">{{ 'Yes' if a.cover_letter_sent else 'No' }}</dd>
+  </dl>
+</div>
+
+<div class="app-form">
+  <h2 class="h5 mb-3">Interview notes</h2>
+  {% if interview %}
+  <dl class="row mb-0">
+    {% if interview.interview_rounds is defined %}
+      <dt class="col-sm-3">Interview rounds</dt>
+      <dd class="col-sm-9">{{ interview.interview_rounds }}</dd>
+    {% endif %}
+    {% if interview.interviewers %}
+      <dt class="col-sm-3">Interviewers</dt>
+      <dd class="col-sm-9">{{ interview.interviewers | join(', ') }}</dd>
+    {% endif %}
+    {% if interview.technical_questions %}
+      <dt class="col-sm-3">Technical questions</dt>
+      <dd class="col-sm-9">
+        <ul class="mb-0 ps-3">
+          {% for q in interview.technical_questions %}<li>{{ q }}</li>{% endfor %}
+        </ul>
+      </dd>
+    {% endif %}
+    {% if interview.feedback %}
+      <dt class="col-sm-3">Feedback</dt>
+      <dd class="col-sm-9">{{ interview.feedback }}</dd>
+    {% endif %}
+    {% if interview.next_steps %}
+      <dt class="col-sm-3">Next steps</dt>
+      <dd class="col-sm-9">{{ interview.next_steps }}</dd>
+    {% endif %}
+    {% if interview.rating is defined %}
+      <dt class="col-sm-3">Rating</dt>
+      <dd class="col-sm-9">{{ interview.rating }} / 5</dd>
+    {% endif %}
+    {% if interview.offer_amount is defined %}
+      <dt class="col-sm-3">Offer amount</dt>
+      <dd class="col-sm-9">${{ '{:,}'.format(interview.offer_amount) }}</dd>
+    {% endif %}
+  </dl>
+  {% else %}
+  <p class="text-muted mb-0">No interview notes yet. Use Edit to add them.</p>
+  {% endif %}
+</div>
+{% endblock %}

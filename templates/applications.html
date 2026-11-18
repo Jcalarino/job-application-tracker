@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import status_badge %}
+{% block title %}Applications - Job Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0">Applications</h1>
+  <a class="btn btn-primary" href="{{ url_for('add_application') }}">+ Add Application</a>
+</div>
+
+<form method="get" class="d-flex align-items-center gap-2 mb-3">
+  <label for="status" class="form-label mb-0">Filter by status:</label>
+  <select class="form-select w-auto" id="status" name="status" onchange="this.form.submit()">
+    <option value="">All</option>
+    {% for s in statuses %}
+      <option value="{{ s }}" {% if selected == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  {% if selected %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('applications') }}">Clear</a>{% endif %}
+</form>
+
+{% if applications %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle app-table">
+    <thead>
+      <tr>
+        <th>Job</th>
+        <th>Company</th>
+        <th>Applied</th>
+        <th>Status</th>
+        <th>Resume</th>
+        <th>Cover letter</th>
+        <th>Next steps</th>
+        <th class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in applications %}
+      <tr>
+        <td class="fw-semibold">
+          <a class="text-decoration-none" href="{{ url_for('application_detail', application_id=a.application_id) }}">{{ a.job_title }}</a>
+        </td>
+        <td>{{ a.company_name }}</td>
+        <td class="text-nowrap">{{ a.application_date }}</td>
+        <td>{{ status_badge(a.status) }}</td>
+        <td>{{ a.resume_version or '-' }}</td>
+        <td>{{ 'Yes' if a.cover_letter_sent else 'No' }}</td>
+        <td>{{ (a.interview.get('next_steps') or '-') | truncate(40) }}</td>
+        <td class="text-end text-nowrap">
+          <a class="btn btn-sm btn-outline-primary"
+             href="{{ url_for('application_detail', application_id=a.application_id) }}">View</a>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{{ url_for('edit_application', application_id=a.application_id) }}">Edit</a>
+          <form class="d-inline" method="post"
+                action="{{ url_for('delete_application', application_id=a.application_id) }}"
+                onsubmit="return confirm('Delete your application for {{ a.job_title | e }} at {{ a.company_name | e }}? This cannot be undone.');">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">No applications{% if selected %} with status "{{ selected }}"{% endif %} yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,12 @@
+{# Shared pieces used by several pages #}
+{% macro status_badge(status) %}
+  {% set colors = {
+    'Applied': 'secondary',
+    'Screening': 'info',
+    'Interview': 'primary',
+    'Offer': 'success',
+    'Rejected': 'danger',
+    'Withdrawn': 'dark'
+  } %}
+  <span class="badge text-bg-{{ colors.get(status, 'secondary') }}">{{ status }}</span>
+{% endmacro %}

@@ -379,5 +379,234 @@ def delete_job(job_id):
     return redirect(url_for('jobs'))
 
 
+# ------------------------------------------------------------
+# Applications: list (with status filter) / detail / add / edit / delete
+# The interview_data JSON column is built from simple form fields.
+# ------------------------------------------------------------
+APPLICATION_STATUSES = ['Applied', 'Screening', 'Interview', 'Offer', 'Rejected', 'Withdrawn']
+
+
+def application_to_form(row):
+    """Turn an applications row into the plain values the form displays."""
+    data = load_requirements(row.get('interview_data'))
+    applied = row.get('application_date')
+    return {
+        'application_id': row.get('application_id'),
+        'job_id': row.get('job_id'),
+        'application_date': applied.isoformat() if applied else '',
+        'status': row.get('status') or 'Applied',
+        'resume_version': row.get('resume_version') or '',
+        'cover_letter_sent': bool(row.get('cover_letter_sent')),
+        'interview_rounds': '' if data.get('interview_rounds') is None else data['interview_rounds'],
+        'interviewers': ', '.join(data.get('interviewers', [])),
+        'technical_questions': ', '.join(data.get('technical_questions', [])),
+        'feedback': data.get('feedback', ''),
+        'next_steps': data.get('next_steps', ''),
+        'rating': '' if data.get('rating') is None else data['rating'],
+        'offer_amount': '' if data.get('offer_amount') is None else data['offer_amount'],
+    }
+
+
+def read_application_form(existing_interview=None):
+    """Validate the submitted application form. Returns (db_values, form_values, errors)."""
+    f = request.form
+    errors = []
+
+    job_id = f.get('job_id', '').strip()
+    application_date = f.get('application_date', '').strip()
+    status = f.get('status', '').strip()
+    resume_version = f.get('resume_version', '').strip()
+    cover_letter = 'cover_letter_sent' in f
+
+    if not job_id.isdigit() or fetch_one(
+            'SELECT job_id FROM jobs WHERE job_id = %s', (job_id,)) is None:
+        errors.append('Please choose a job.')
+    if not application_date:
+        errors.append('Application date is required.')
+    else:
+        try:
+            datetime.strptime(application_date, '%Y-%m-%d')
+        except ValueError:
+            errors.append('Application date must be a valid date.')
+    if status not in APPLICATION_STATUSES:
+        errors.append('Please choose a valid status.')
+    if len(resume_version) > 50:
+        errors.append('Resume version must be 50 characters or fewer.')
+
+    rounds = parse_whole_number(f.get('interview_rounds'), 'Interview rounds', errors)
+    rating = parse_whole_number(f.get('rating'), 'Rating', errors)
+    if rating is not None and not 1 <= rating <= 5:
+        errors.append('Rating must be between 1 and 5.')
+    offer = parse_whole_number(f.get('offer_amount'), 'Offer amount', errors)
+
+    # Build the JSON, keeping any extra keys the record already had
+    interview = dict(existing_interview or {})
+
+    def put(key, value):
+        if value is None or value == '' or value == []:
+            interview.pop(key, None)
+        else:
+            interview[key] = value
+
+    put('interview_rounds', rounds)
+    put('interviewers', split_skills(f.get('interviewers')))
+    put('technical_questions', split_skills(f.get('technical_questions')))
+    put('feedback', f.get('feedback', '').strip())
+    put('next_steps', f.get('next_steps', '').strip())
+    put('rating', rating)
+    put('offer_amount', offer)
+
+    db_values = {
+        'job_id': int(job_id) if job_id.isdigit() else None,
+        'application_date': application_date or None,
+        'status': status,
+        'resume_version': resume_version or None,
+        'cover_letter_sent': cover_letter,
+        # Stay NULL when there are no interview notes at all
+        'interview_data': json.dumps(interview) if interview else None,
+    }
+    form_values = {
+        'job_id': int(job_id) if job_id.isdigit() else None,
+        'application_date': application_date,
+        'status': status,
+        'resume_version': resume_version,
+        'cover_letter_sent': cover_letter,
+        'interview_rounds': f.get('interview_rounds', ''),
+        'interviewers': f.get('interviewers', ''),
+        'technical_questions': f.get('technical_questions', ''),
+        'feedback': f.get('feedback', ''),
+        'next_steps': f.get('next_steps', ''),
+        'rating': f.get('rating', ''),
+        'offer_amount': f.get('offer_amount', ''),
+    }
+    return db_values, form_values, errors
+
+
+def job_choices():
+    return fetch_all('''
+        SELECT j.job_id, j.job_title, c.company_name
+        FROM jobs j JOIN companies c ON j.company_id = c.company_id
+        ORDER BY c.company_name, j.job_title
+    ''')
+
+
+def render_application_form(form, mode):
+    return render_template('application_form.html', application=form, mode=mode,
+                           jobs=job_choices(), statuses=APPLICATION_STATUSES)
+
+
+@app.route('/applications')
+def applications():
+    status = request.args.get('status', '').strip()
+    sql = '''
+        SELECT a.*, j.job_title, c.company_name
+        FROM applications a
+        JOIN jobs j ON a.job_id = j.job_id
+        JOIN companies c ON j.company_id = c.company_id
+    '''
+    params = ()
+    if status in APPLICATION_STATUSES:
+        sql += ' WHERE a.status = %s'
+        params = (status,)
+    sql += ' ORDER BY a.application_date DESC, a.application_id DESC'
+    rows = fetch_all(sql, params)
+    for row in rows:
+        row['interview'] = load_requirements(row['interview_data'])
+    return render_template('applications.html', applications=rows,
+                           statuses=APPLICATION_STATUSES,
+                           selected=status if status in APPLICATION_STATUSES else '')
+
+
+@app.route('/applications/<int:application_id>')
+def application_detail(application_id):
+    row = fetch_one('''
+        SELECT a.*, j.job_title, j.company_id, c.company_name
+        FROM applications a
+        JOIN jobs j ON a.job_id = j.job_id
+        JOIN companies c ON j.company_id = c.company_id
+        WHERE a.application_id = %s
+    ''', (application_id,))
+    if row is None:
+        flash('Application not found.', 'warning')
+        return redirect(url_for('applications'))
+    return render_template('application_detail.html', a=row,
+                           interview=load_requirements(row['interview_data']))
+
+
+@app.route('/applications/add', methods=['GET', 'POST'])
+def add_application():
+    if request.method == 'POST':
+        data, form, errors = read_application_form()
+        if errors:
+            for e in errors:
+                flash(e, 'danger')
+            return render_application_form(form, 'add')
+        try:
+            execute('''
+                INSERT INTO applications (job_id, application_date, status, resume_version,
+                                          cover_letter_sent, interview_data)
+                VALUES (%(job_id)s, %(application_date)s, %(status)s, %(resume_version)s,
+                        %(cover_letter_sent)s, %(interview_data)s)
+            ''', data)
+        except mysql.connector.Error as err:
+            flash(f'Database error: {err}', 'danger')
+            return render_application_form(form, 'add')
+        flash('Application added', 'success')
+        return redirect(url_for('applications'))
+
+    blank = application_to_form({})
+    blank['application_date'] = datetime.today().strftime('%Y-%m-%d')
+    preselect = request.args.get('job_id', '')
+    blank['job_id'] = int(preselect) if preselect.isdigit() else None
+    return render_application_form(blank, 'add')
+
+
+@app.route('/applications/<int:application_id>/edit', methods=['GET', 'POST'])
+def edit_application(application_id):
+    existing = fetch_one('SELECT * FROM applications WHERE application_id = %s', (application_id,))
+    if existing is None:
+        flash('Application not found.', 'warning')
+        return redirect(url_for('applications'))
+
+    if request.method == 'POST':
+        data, form, errors = read_application_form(load_requirements(existing['interview_data']))
+        form['application_id'] = application_id
+        if errors:
+            for e in errors:
+                flash(e, 'danger')
+            return render_application_form(form, 'edit')
+        data['application_id'] = application_id
+        try:
+            execute('''
+                UPDATE applications
+                SET job_id = %(job_id)s, application_date = %(application_date)s,
+                    status = %(status)s, resume_version = %(resume_version)s,
+                    cover_letter_sent = %(cover_letter_sent)s, interview_data = %(interview_data)s
+                WHERE application_id = %(application_id)s
+            ''', data)
+        except mysql.connector.Error as err:
+            flash(f'Database error: {err}', 'danger')
+            return render_application_form(form, 'edit')
+        flash('Application updated', 'success')
+        return redirect(url_for('applications'))
+
+    return render_application_form(application_to_form(existing), 'edit')
+
+
+@app.route('/applications/<int:application_id>/delete', methods=['POST'])
+def delete_application(application_id):
+    existing = fetch_one('SELECT application_id FROM applications WHERE application_id = %s',
+                         (application_id,))
+    if existing is None:
+        flash('Application not found.', 'warning')
+    else:
+        try:
+            execute('DELETE FROM applications WHERE application_id = %s', (application_id,))
+            flash('Application deleted.', 'success')
+        except mysql.connector.Error as err:
+            flash(f'Database error: {err}', 'danger')
+    return redirect(url_for('applications'))
+
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Add' if mode == 'add' else 'Edit' }} Application - Job Tracker{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ 'Add Application' if mode == 'add' else 'Edit Application' }}</h1>
+
+<form method="post" class="app-form" novalidate>
+  <div class="mb-3">
+    <label for="job_id" class="form-label">Job *</label>
+    <select class="form-select" id="job_id" name="job_id" required>
+      <option value="">Choose a job...</option>
+      {% for j in jobs %}
+        <option value="{{ j.job_id }}" {% if application.job_id == j.job_id %}selected{% endif %}>
+          {{ j.job_title }} - {{ j.company_name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-3">
+      <label for="application_date" class="form-label">Application date *</label>
+      <input type="date" class="form-control" id="application_date" name="application_date"
+             required value="{{ application.application_date }}">
+    </div>
+    <div class="col-md-4 mb-3">
+      <label for="status" class="form-label">Status *</label>
+      <select class="form-select" id="status" name="status" required>
+        {% for s in statuses %}
+          <option value="{{ s }}" {% if application.status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4 mb-3">
+      <label for="resume_version" class="form-label">Resume version</label>
+      <input type="text" class="form-control" id="resume_version" name="resume_version"
+             maxlength="50" placeholder="v2.1" value="{{ application.resume_version }}">
+    </div>
+  </div>
+
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="cover_letter_sent" name="cover_letter_sent"
+           {% if application.cover_letter_sent %}checked{% endif %}>
+    <label class="form-check-label" for="cover_letter_sent">Cover letter sent</label>
+  </div>
+
+  <hr>
+  <h2 class="h5 mb-3">Interview notes <span class="text-muted fw-normal">(optional)</span></h2>
+
+  <div class="row">
+    <div class="col-md-3 mb-3">
+      <label for="interview_rounds" class="form-label">Interview rounds</label>
+      <input type="number" min="0" class="form-control" id="interview_rounds"
+             name="interview_rounds" value="{{ application.interview_rounds }}">
+    </div>
+    <div class="col-md-3 mb-3">
+      <label for="rating" class="form-label">Rating (1-5)</label>
+      <input type="number" min="1" max="5" class="form-control" id="rating" name="rating"
+             value="{{ application.rating }}">
+    </div>
+    <div class="col-md-6 mb-3">
+      <label for="offer_amount" class="form-label">Offer amount ($)</label>
+      <input type="number" min="0" class="form-control" id="offer_amount" name="offer_amount"
+             value="{{ application.offer_amount }}">
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label for="interviewers" class="form-label">Interviewers</label>
+    <input type="text" class="form-control" id="interviewers" name="interviewers"
+           placeholder="Sarah Johnson, Mike Chen" value="{{ application.interviewers }}">
+    <div class="form-text">Separate names with commas.</div>
+  </div>
+
+  <div class="mb-3">
+    <label for="technical_questions" class="form-label">Technical questions</label>
+    <input type="text" class="form-control" id="technical_questions" name="technical_questions"
+           placeholder="SQL joins, Python basics" value="{{ application.technical_questions }}">
+    <div class="form-text">Separate questions with commas.</div>
+  </div>
+
+  <div class="mb-3">
+    <label for="feedback" class="form-label">Feedback</label>
+    <textarea class="form-control" id="feedback" name="feedback" rows="2">{{ application.feedback }}</textarea>
+  </div>
+
+  <div class="mb-3">
+    <label for="next_steps" class="form-label">Next steps</label>
+    <input type="text" class="form-control" id="next_steps" name="next_steps"
+           value="{{ application.next_steps }}">
+  </div>
+
+  <button type="submit" class="btn btn-primary">{{ 'Add Application' if mode == 'add' else 'Save Changes' }}</button>
+  <a class="btn btn-outline-secondary" href="{{ url_for('applications') }}">Cancel</a>
+</form>
+{% endblock %}
